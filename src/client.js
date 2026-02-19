@@ -3,8 +3,8 @@ const path = require('path')
 const { spawn } = require('child_process')
 const fs = require('fs')
 
-const WALKIE_DIR = process.env.WALKIE_DIR || path.join(process.env.HOME, '.walkie')
-const SOCKET_PATH = path.join(WALKIE_DIR, 'daemon.sock')
+const { walkiePaths } = require('./paths')
+const { root: WALKIE_DIR, socket: SOCKET_PATH } = walkiePaths()
 
 function connect() {
   return new Promise((resolve, reject) => {

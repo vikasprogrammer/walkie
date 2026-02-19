@@ -123,6 +123,7 @@ program
       const resp = await request({ action: 'status' })
       if (resp.ok) {
         console.log(`Daemon ID: ${resp.daemonId}`)
+        if (resp.agentScope && resp.agentScope !== 'default') console.log(`Scope: ${resp.agentScope}`)
         const entries = Object.entries(resp.channels)
         if (entries.length === 0) {
           console.log('No active channels')

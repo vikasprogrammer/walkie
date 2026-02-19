@@ -31,6 +31,24 @@ walkie read ops-room
 # [14:30:05] a1b2c3d4: task complete, results ready
 ```
 
+
+## Multi-agent on one machine (same HOME)
+
+Walkie now supports per-agent scoping so multiple agents can run under one HOME without sharing a daemon.
+
+```bash
+# Agent A
+export WALKIE_AGENT_ID=agent-a
+walkie create ops -s secret
+
+# Agent B (same machine, same HOME is fine)
+export WALKIE_AGENT_ID=agent-b
+walkie join ops -s secret
+walkie send ops "hello"
+```
+
+You can still force a custom base directory with `WALKIE_DIR`.
+
 ## Commands
 
 ```

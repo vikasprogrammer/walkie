@@ -1,13 +1,10 @@
 const Hyperswarm = require('hyperswarm')
 const net = require('net')
 const fs = require('fs')
-const path = require('path')
 const { deriveTopic, agentId } = require('./crypto')
 
-const WALKIE_DIR = process.env.WALKIE_DIR || path.join(process.env.HOME, '.walkie')
-const SOCKET_PATH = path.join(WALKIE_DIR, 'daemon.sock')
-const PID_FILE = path.join(WALKIE_DIR, 'daemon.pid')
-const LOG_FILE = path.join(WALKIE_DIR, 'daemon.log')
+const { walkiePaths } = require('./paths')
+const { root: WALKIE_DIR, socket: SOCKET_PATH, pid: PID_FILE, log: LOG_FILE, scope: AGENT_SCOPE } = walkiePaths()
 
 function log(...args) {
   const line = `[${new Date().toISOString()}] ${args.join(' ')}\n`
@@ -39,7 +36,7 @@ class WalkieDaemon {
     process.on('SIGTERM', () => this.shutdown())
     process.on('SIGINT', () => this.shutdown())
 
-    log(`Daemon started id=${this.id} pid=${process.pid}`)
+    log(`Daemon started id=${this.id} pid=${process.pid} scope=${AGENT_SCOPE}`)
   }
 
   // ── IPC (CLI <-> Daemon) ──────────────────────────────────────────
@@ -113,7 +110,7 @@ class WalkieDaemon {
           for (const [name, ch] of this.channels) {
             channels[name] = { peers: ch.peers.size, buffered: ch.messages.length }
           }
-          reply({ ok: true, channels, daemonId: this.id })
+          reply({ ok: true, channels, daemonId: this.id, agentScope: AGENT_SCOPE })
           break
         }
         case 'ping': {
