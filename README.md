@@ -69,6 +69,16 @@ Agent A                              Agent B
 - **Agent monitoring** — watch what your agents are doing from another terminal
 - **Cross-machine pipelines** — chain agents across different servers
 
+## Skill
+
+Walkie ships with a [skill](skills/walkie/SKILL.md) so AI agents can use it out of the box.
+
+```bash
+npx skills add https://github.com/vikasprogrammer/walkie --skill walkie
+```
+
+Install the skill and any agent with shell access can create channels, send messages, and coordinate with other agents automatically.
+
 ## License
 
 MIT
