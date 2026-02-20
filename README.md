@@ -21,33 +21,18 @@ AI agents are isolated. When two agents need to collaborate, there's no simple w
 
 **Agent A** (on any machine):
 ```bash
-walkie create ops-room --secret mysecret
+walkie create ops-room -s mysecret
 walkie send ops-room "task complete, results ready"
 ```
 
-**Agent B** (on any other machine):
+**Agent B** (on any other machine, or a different terminal on the same machine):
 ```bash
-walkie join ops-room --secret mysecret
+walkie join ops-room -s mysecret
 walkie read ops-room
 # [14:30:05] a1b2c3d4: task complete, results ready
 ```
 
-## Same machine
-
-Two agents on the same machine can talk through the same daemon using `WALKIE_ID`:
-
-```bash
-# Agent A
-export WALKIE_ID=alice
-walkie create ops-room --secret mysecret
-walkie send ops-room "hello from alice"
-
-# Agent B (same machine, different terminal)
-export WALKIE_ID=bob
-walkie join ops-room --secret mysecret
-walkie read ops-room
-# [14:30:05] alice: hello from alice
-```
+Works the same whether agents are on the same machine or different continents.
 
 ## Commands
 
@@ -101,25 +86,18 @@ Install the skill and any agent with shell access can create channels, send mess
 
 ### 1.3.0
 
-- **Removed `--as` flag** — `WALKIE_ID` env var is the only way to set explicit sender names. Eliminates mixed-identity bugs where `--as` was used inconsistently across commands
-- **Stale daemon recovery** — cleans up stale socket and PID files before spawning a new daemon, with better error messages pointing to `~/.walkie/daemon.log`
+- **Simplified CLI** — removed `--as` flag, `WALKIE_ID` env var is the only explicit identity option
+- **Stale daemon recovery** — cleans up stale socket/PID files before spawning, better error messages
 
 ### 1.2.0
 
-- **Auto-unique subscriber IDs** — each terminal session automatically gets a unique subscriber ID derived from the terminal session (supports Terminal.app, iTerm2, tmux, WezTerm, X11). Two agents in different terminals just work — no `WALKIE_ID` setup needed
-- `WALKIE_ID` still works as an explicit override for human-readable sender names
-- **`--wait` blocks indefinitely** — `walkie read --wait` now blocks until a message arrives with no default timeout. Add `--timeout N` for an optional deadline
-- **Orphaned waiter fix** — interrupted `read --wait` no longer silently drops messages
+- **Auto-unique subscriber IDs** — each terminal session gets a unique ID automatically. Same-machine agents just work with no setup
+- **`--wait` blocks indefinitely** — `walkie read --wait` blocks until a message arrives. Add `--timeout N` for a deadline
 
 ### 1.1.0
 
-- **Same-machine multi-agent routing** — multiple agents on one machine can communicate through the same daemon using `WALKIE_ID` env var
-- Per-subscriber message buffers — each identity gets its own buffer, senders never see their own messages
-- `walkie status` now shows subscriber count per channel
-- `walkie leave` only tears down the P2P connection when all local subscribers have left
-- New `same-machine-collab.sh` template
-- Updated monitoring template to use `WALKIE_ID=monitor` to avoid stealing messages
-- Comprehensive docs: recovery, group channels, fire-and-forget semantics, error cases
+- **Same-machine multi-agent routing** — per-subscriber message buffers, senders never see their own messages
+- `walkie status` shows subscriber count, `walkie leave` only tears down P2P when all subscribers leave
 
 ## License
 

@@ -42,16 +42,6 @@ walkie read room
 # [14:30:05] 5cc112d0: hello from alice
 ```
 
-## Named identities (optional)
-
-For human-readable sender names, set `WALKIE_ID`:
-
-```bash
-export WALKIE_ID=alice           # all commands in this shell use "alice"
-```
-
-Without this, a short hash of your terminal session is used automatically.
-
 ## Behavior to know
 
 - `delivered: 0` means the message is permanently lost — verify `delivered > 0` for critical messages
