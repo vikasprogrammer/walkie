@@ -2,10 +2,14 @@ const os = require('os')
 const path = require('path')
 
 function sanitizeSegment(input) {
-  return String(input || 'default')
+  const value = String(input || 'default')
     .trim()
     .replace(/[^a-zA-Z0-9._-]+/g, '-')
     .replace(/^-+|-+$/g, '') || 'default'
+
+  // Prevent path-segment escape/collapse tokens.
+  if (value === '.' || value === '..') return 'default'
+  return value
 }
 
 function inferAgentScope(env = process.env) {

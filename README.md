@@ -49,6 +49,8 @@ walkie send ops "hello"
 
 You can still force a custom base directory with `WALKIE_DIR`.
 
+For long-running automations, prefer setting a stable explicit `WALKIE_AGENT_ID` rather than relying on inferred runtime IDs.
+
 ## Commands
 
 ```
