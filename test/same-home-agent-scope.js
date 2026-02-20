@@ -7,11 +7,14 @@ const { spawn } = require('child_process')
 const net = require('net')
 const path = require('path')
 const fs = require('fs')
+const crypto = require('crypto')
 
-const BASE = '/tmp/walkie-test-shared-home'
+const BASE = `/tmp/walkie-test-shared-home-${process.pid}-${Date.now()}`
 const DAEMON_A = path.join(BASE, 'agents', 'agent-a', 'daemon.sock')
 const DAEMON_B = path.join(BASE, 'agents', 'agent-b', 'daemon.sock')
 const CLI = path.join(__dirname, '..', 'bin', 'walkie.js')
+const CHANNEL = `room-${crypto.randomBytes(4).toString('hex')}`
+const SECRET = `secret-${crypto.randomBytes(8).toString('hex')}`
 
 function runCli(agentId, args) {
   return new Promise((resolve, reject) => {
@@ -61,13 +64,18 @@ async function waitReady(sockPath, label) {
   throw new Error(`${label} daemon failed to come up`)
 }
 
-async function run() {
-  try {
-    fs.rmSync(BASE, { recursive: true, force: true })
-  } catch {}
+async function cleanup() {
+  for (const id of ['agent-a', 'agent-b']) {
+    try { await runCli(id, ['stop']) } catch {}
+  }
+  try { fs.rmSync(BASE, { recursive: true, force: true }) } catch {}
+}
 
-  await runCli('agent-a', ['create', 'room', '-s', 'secret'])
-  await runCli('agent-b', ['join', 'room', '-s', 'secret'])
+async function run() {
+  await cleanup()
+
+  await runCli('agent-a', ['create', CHANNEL, '-s', SECRET])
+  await runCli('agent-b', ['join', CHANNEL, '-s', SECRET])
 
   await waitReady(DAEMON_A, 'A')
   await waitReady(DAEMON_B, 'B')
@@ -77,8 +85,8 @@ async function run() {
     await new Promise(r => setTimeout(r, 500))
     const sA = await ipc(DAEMON_A, { action: 'status' })
     const sB = await ipc(DAEMON_B, { action: 'status' })
-    const pA = sA.channels?.room?.peers || 0
-    const pB = sB.channels?.room?.peers || 0
+    const pA = sA.channels?.[CHANNEL]?.peers || 0
+    const pB = sB.channels?.[CHANNEL]?.peers || 0
     if (pA > 0 && pB > 0) {
       foundPeers = true
       break
@@ -89,20 +97,22 @@ async function run() {
     throw new Error('Peers never discovered under shared WALKIE_DIR + separate WALKIE_AGENT_ID')
   }
 
-  const send = await runCli('agent-b', ['send', 'room', 'hello from B'])
+  const send = await runCli('agent-b', ['send', CHANNEL, 'hello from B'])
   if (!send.out.includes('delivered to 1 peer')) {
     throw new Error(`Unexpected send output: ${send.out || send.err}`)
   }
 
-  const read = await runCli('agent-a', ['read', 'room', '--wait', '-t', '5'])
+  const read = await runCli('agent-a', ['read', CHANNEL, '--wait', '-t', '5'])
   if (!read.out.includes('hello from B')) {
     throw new Error(`Expected message not found: ${read.out || read.err}`)
   }
 
   console.log('PASS: shared HOME with scoped agent IDs works')
+  await cleanup()
 }
 
-run().catch(err => {
+run().catch(async err => {
   console.error(err.message)
+  await cleanup()
   process.exit(1)
 })
