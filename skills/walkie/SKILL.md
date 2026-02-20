@@ -1,10 +1,12 @@
 ---
 name: walkie
 description: P2P communication between AI agents using walkie-sh CLI. Use when the user asks to set up agent-to-agent communication, create a walkie channel, send/receive messages between agents, or enable real-time coordination between multiple AI agents. Triggers on "walkie", "agent communication", "talk to another agent", "set up a channel", "inter-agent messaging".
-allowed-tools: Bash(walkie:*), Bash(npx walkie-sh:*)
+allowed-tools: Bash(walkie:*)
 ---
 
 # Walkie — Agent-to-Agent P2P Communication
+
+Prerequisite: `npm install -g walkie-sh`
 
 ## Core Workflow
 
@@ -16,101 +18,110 @@ Every agent communication follows this pattern:
 4. **Cleanup**: Leave the channel and stop the daemon when done
 
 ```bash
-# Agent A
+# Agent A (cross-machine: each machine has its own daemon)
 walkie create ops-room -s mysecret
 walkie send ops-room "task complete, results at /tmp/output.json"
 
-# Agent B
+# Agent B (different machine)
 walkie join ops-room -s mysecret
 walkie read ops-room
 # [14:30:05] a1b2c3d4: task complete, results at /tmp/output.json
 ```
 
+The sender ID is the remote daemon's 8-char hex ID for P2P messages. For same-machine messages, it shows the `WALKIE_ID` instead (e.g., `alice`).
+
 ## Essential Commands
 
 ```bash
-# Channel management
-walkie create <channel> -s <secret>   # Create a channel and listen for peers
-walkie join <channel> -s <secret>     # Join an existing channel
-walkie leave <channel>                # Leave a channel
+# Channel management (create and join are functionally identical)
+walkie create <channel> -s <secret>   # Create/join a channel
+walkie join <channel> -s <secret>     # Join a channel (same as create)
+walkie leave <channel>                # Remove your subscription from a channel
 walkie stop                           # Stop the background daemon
 
 # Messaging
-walkie send <channel> "message"       # Send a message to all peers
+walkie send <channel> "message"       # Send to all recipients (P2P peers + local subscribers)
 walkie read <channel>                 # Read pending messages (non-blocking)
-walkie read <channel> --wait          # Block until a message arrives (default 30s)
-walkie read <channel> -w -t 60        # Block with custom timeout (seconds)
+walkie read <channel> --wait          # Block until a message arrives or 30s elapses (exit 0 either way)
+walkie read <channel> --wait --timeout 60  # Block with custom timeout
 
 # Status
-walkie status                         # Show active channels, peers, buffered messages
+walkie status                         # Show channels, peers, subscribers, buffered messages
 ```
 
-## Common Patterns
+## Same-Machine Multi-Agent (WALKIE_ID)
 
-### Two-Agent Collaboration
+When two agents share the same machine (same daemon), use `WALKIE_ID` or `--as` to give each agent a unique identity. Messages are routed locally without going over the network.
 
 ```bash
-# Agent A (coordinator)
-walkie create task-room -s sharedsecret
-walkie send task-room "analyze /data/users.csv and report top 10"
-walkie read task-room --wait --timeout 120   # Wait for result
+# Agent A
+export WALKIE_ID=alice
+walkie create ops-room -s mysecret
+walkie send ops-room "task complete"
 
-# Agent B (worker)
-walkie join task-room -s sharedsecret
-walkie read task-room --wait                 # Get the task
-# ... do the work ...
-walkie send task-room "done: top 10 users saved to /tmp/report.txt"
+# Agent B (same machine)
+export WALKIE_ID=bob
+walkie join ops-room -s mysecret
+walkie read ops-room
+# [14:30:05] alice: task complete
 ```
 
-### Polling Between Task Steps
+**How it works:**
+- Each `WALKIE_ID` gets its own message buffer in the daemon
+- `send` delivers to P2P peers AND all other local subscribers (sender excluded)
+- `delivered` count includes both P2P peers and local subscribers
+- Without `WALKIE_ID` or `--as`, defaults to `"default"` (backward compatible)
+- **Resolution order:** `--as` flag > `WALKIE_ID` env var > `"default"`
 
-Check for messages between work steps to receive course corrections, new data, or stop signals mid-operation.
+**Warning:** Each `WALKIE_ID` maps to a single buffer. If two processes use the same ID, one process will drain messages the other expected. Always use unique `WALKIE_ID`s for concurrent agents on the same machine.
+
+## Group Channels
+
+Any number of agents can share a channel — 2, 5, or 50. `send` delivers to all connected peers and all local subscribers simultaneously (true multicast). Every agent on the channel sees every message except their own.
 
 ```bash
-walkie join task-channel -s secret
-# Step 1: do work
-walkie read task-channel              # Non-blocking check
-# Step 2: do more work
-walkie read task-channel              # Non-blocking check
-# Step 3: report completion
-walkie send task-channel "all steps complete"
+# Three agents on the same machine
+WALKIE_ID=alice walkie create room -s secret
+WALKIE_ID=bob walkie join room -s secret
+WALKIE_ID=charlie walkie join room -s secret
+
+WALKIE_ID=alice walkie send room "hello everyone"
+# bob and charlie both receive it; alice does not
 ```
 
-### Hub-and-Spoke (One Coordinator, Many Workers)
+## Continuous Listening
+
+For autonomous agent-to-agent communication, loop on `walkie read --wait`:
 
 ```bash
-# Coordinator creates a shared channel
-walkie create dispatch -s teamsecret
-
-# Workers all join the same channel
-walkie join dispatch -s teamsecret    # Worker 1
-walkie join dispatch -s teamsecret    # Worker 2
-
-# Coordinator broadcasts tasks
-walkie send dispatch "worker-1: process batch A"
-walkie send dispatch "worker-2: process batch B"
-
-# Workers poll for their assignments
-walkie read dispatch
+while true; do
+  MSG=$(walkie read <channel> --wait --timeout 120)
+  if [ "$MSG" != "No new messages" ] && [ -n "$MSG" ]; then
+    # Process and respond
+    walkie send <channel> "response"
+  fi
+done
 ```
 
-### Blocking Wait for Response
-
-```bash
-walkie send task-room "what is the status?"
-walkie read task-room --wait --timeout 60
-# Blocks until a reply arrives or 60 seconds elapse
-```
+See [references/polling-patterns.md](references/polling-patterns.md) for task delegation, heartbeat, stop signal, request-response, and fan-out/fan-in patterns.
 
 ## Key Details
 
 - **Daemon auto-starts** on first command, runs in background at `~/.walkie/`
+- **Debug logs** are written to `~/.walkie/daemon.log`
+- **`WALKIE_DIR`** env var overrides the daemon directory (default: `~/.walkie`)
 - **Messages buffer locally** — `walkie read` drains the buffer, each message returned once
+- **Fire-and-forget** — if `delivered: 0`, the message is permanently lost. No buffering for offline peers. Verify `delivered > 0` in critical workflows
 - **Channel = hash(name + secret)** — both sides must use the same name and secret
 - **Encrypted** — all P2P connections use the Noise protocol via Hyperswarm
 - **Peer discovery** takes 1–15 seconds via DHT
 - **No server** — fully peer-to-peer, works across machines and networks
-- **`walkie read` output format**: `[HH:MM:SS] <sender-id>: <message>`
+- **Timestamp format** in `walkie read` output is locale-dependent — do not parse it by regex
+- **`leave` with multiple subscribers** — only removes your subscription; channel stays alive for other local subscribers
+
+## Recovery
+
+If the daemon crashes, all buffered messages and channel subscriptions are lost. The daemon will auto-restart on the next CLI command, but agents must re-create/re-join channels. There is no message persistence.
 
 ## Cleanup
 
@@ -134,5 +145,6 @@ walkie stop              # Stop the daemon entirely
 | Template | Description |
 |----------|-------------|
 | [templates/two-agent-collab.sh](templates/two-agent-collab.sh) | Coordinator sends task, worker executes and reports back |
+| [templates/same-machine-collab.sh](templates/same-machine-collab.sh) | Same-machine collaboration with WALKIE_ID |
 | [templates/delegated-task.sh](templates/delegated-task.sh) | Delegate work to another agent and wait for result |
-| [templates/monitoring.sh](templates/monitoring.sh) | Monitor agent activity from a separate terminal |
+| [templates/monitoring.sh](templates/monitoring.sh) | Monitor agent activity (uses `--as monitor` to avoid stealing messages) |

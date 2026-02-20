@@ -84,22 +84,25 @@ When a new channel is joined after peers are already connected, the daemon re-se
 ## Message Flow
 
 ```
-Agent A                              Agent B
-walkie send room "hello"
+Agent A (alice)                      Agent B (bob, remote)
+walkie send room "hello" --as alice
     │
     ▼
 daemon A: _send()
-    │ writes JSON to peer conn
-    ▼
-  ──── P2P (encrypted) ────►
-                                daemon B: _onPeerMsg()
-                                    │ buffers in ch.messages[]
-                                    │ or delivers to waiter
-                                    ▼
-                                walkie read room
-                                    │ drains buffer
-                                    ▼
-                                "[14:30:05] a1b2c3d4: hello"
+    ├─ writes JSON to P2P peer conn ──────►
+    │                                  daemon B: _onPeerMsg()
+    │                                      │ _deliverLocal() to all subscribers
+    │                                      ▼
+    │                                  walkie read room --as bob
+    │                                      │ drains subscriber buffer
+    │                                      ▼
+    │                                  "[14:30:05] a1b2c3d4: hello"
+    │
+    └─ _deliverLocal() to other local subscribers (excludes alice)
+        ▼
+    Agent C (charlie, same machine as A)
+    walkie read room --as charlie
+        "[14:30:05] alice: hello"
 ```
 
 ### Message Format (P2P wire)
@@ -112,8 +115,8 @@ daemon A: _send()
 
 When `walkie read --wait` is called and no messages are buffered:
 
-1. A waiter callback is registered on the channel
-2. When a message arrives, it's delivered directly to the waiter instead of buffering
+1. A waiter callback is registered on the subscriber's buffer (per `clientId`)
+2. When a message arrives (P2P or local), `_deliverLocal()` delivers directly to the waiter instead of buffering
 3. If timeout elapses, the waiter returns an empty array
 
 ## IPC Protocol
@@ -122,8 +125,10 @@ CLI ↔ Daemon communication uses newline-delimited JSON over a Unix socket.
 
 **Request:**
 ```json
-{ "action": "join", "channel": "room", "secret": "mysecret" }
+{ "action": "join", "channel": "room", "secret": "mysecret", "clientId": "alice" }
 ```
+
+The `clientId` field is optional (defaults to `"default"`). It identifies which local subscriber the command is for, enabling multiple agents on the same daemon.
 
 **Response:**
 ```json
@@ -140,9 +145,11 @@ Error responses:
 | Action | Fields | Response |
 |--------|--------|----------|
 | `ping` | — | `{ ok: true }` |
-| `join` | `channel`, `secret` | `{ ok: true, channel }` |
-| `send` | `channel`, `message` | `{ ok: true, delivered: N }` |
-| `read` | `channel`, `wait?`, `timeout?` | `{ ok: true, messages: [...] }` |
-| `leave` | `channel` | `{ ok: true }` |
+| `join` | `channel`, `secret`, `clientId?` | `{ ok: true, channel }` |
+| `send` | `channel`, `message`, `clientId?` | `{ ok: true, delivered: N }` |
+| `read` | `channel`, `wait?`, `timeout?`, `clientId?` | `{ ok: true, messages: [...] }` |
+| `leave` | `channel`, `clientId?` | `{ ok: true }` |
 | `status` | — | `{ ok: true, channels: {...}, daemonId }` |
 | `stop` | — | `{ ok: true }` (then exits) |
+
+**Note:** `ping` is an internal health-check used by the auto-start mechanism (`src/client.js`). It is not exposed as a CLI command.

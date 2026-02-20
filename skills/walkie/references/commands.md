@@ -56,14 +56,20 @@ walkie send <channel> "your message here"
 
 **Output on success:**
 ```
-Sent (delivered to 2 peers)
+Sent (delivered to 2 recipients)
 ```
 
 **Notes:**
-- Returns the number of peers the message was delivered to
-- `delivered: 0` means no peers are currently connected (message is NOT buffered for them)
-- Messages are only received by peers connected at the time of sending
+- `delivered` counts remote P2P peers plus local subscribers (other `WALKIE_ID`s on the same daemon), excluding the sender
+- Messages are fire-and-forget. If `delivered: 0`, the message is permanently lost — there is no buffering for offline peers
+- Messages are only received by peers and subscribers connected at the time of sending
 - Quote messages with spaces to prevent shell word-splitting
+
+**Errors:**
+```
+Error: Not in channel: <channel>
+```
+You must `create` or `join` the channel before sending.
 
 ## walkie read \<channel\>
 
@@ -88,6 +94,9 @@ walkie read <channel> --wait --timeout 60  # Block up to 60 seconds
 
 Each line: `[timestamp] sender-id: message-content`
 
+- For same-machine messages, `sender-id` is the sender's `WALKIE_ID` (e.g., `alice`)
+- For remote P2P messages, `sender-id` is the remote daemon's 8-character hex ID
+
 **No messages:**
 ```
 No new messages
@@ -96,8 +105,16 @@ No new messages
 **Notes:**
 - `read` drains the buffer — each message is returned only once
 - Without `--wait`, returns immediately with whatever is buffered (or "No new messages")
-- With `--wait`, blocks until at least one message arrives or timeout elapses
+- With `--wait`, blocks until at least one message arrives or timeout elapses (returns "No new messages" on timeout, exit code 0)
 - Messages received while not reading are buffered locally in the daemon
+- If you read from a channel that exists on this daemon but you haven't explicitly joined, your subscriber is auto-registered. You will only receive messages sent after this auto-registration
+- The timestamp format is locale-dependent — do not rely on a specific format for parsing
+
+**Errors:**
+```
+Error: Not in channel: <channel>
+```
+The channel does not exist on this daemon. Create or join it first.
 
 ## walkie status
 
@@ -110,21 +127,24 @@ walkie status
 **Output:**
 ```
 Daemon ID: a1b2c3d4
-  #ops-room — 2 peer(s), 0 buffered
-  #logs — 1 peer(s), 3 buffered
+  #ops-room — 2 peer(s), 1 subscriber(s), 0 buffered
+  #logs — 1 peer(s), 2 subscriber(s), 3 buffered
 ```
 
 **Notes:**
 - `Daemon ID` is a random 8-character hex string, unique per daemon instance
-- `peers` = number of connected peers on that channel
-- `buffered` = messages waiting to be read
+- `peers` = number of connected P2P peers on that channel
+- `subscribers` = number of local subscribers (agents using this daemon)
+- `buffered` = total messages waiting to be read across **all** subscribers (aggregate, not per-subscriber)
+- `status` does not take a `--as` / `WALKIE_ID` — it always shows aggregate data
 
 ## walkie leave \<channel\>
 
-Leave a channel and stop listening for peers on it.
+Remove your subscription from a channel. The underlying P2P connection is only torn down when all local subscribers (`WALKIE_ID`s) have left.
 
 ```bash
 walkie leave <channel>
+walkie leave <channel> --as alice
 ```
 
 **Output on success:**
@@ -155,11 +175,44 @@ Daemon is not running
 - All active channels are disconnected
 - The daemon will auto-restart on the next `walkie` command
 
+## Global Options
+
+| Option | Description |
+|--------|-------------|
+| `--as <name>` | Subscriber identity for same-machine multi-agent routing |
+| `-V, --version` | Print the walkie version |
+
+The `--as` flag identifies which local subscriber you are. This enables multiple agents on the same machine to use the same daemon and channel without seeing their own messages.
+
+**Resolution order:** `--as` flag > `WALKIE_ID` env var > `"default"`
+
+### Same-Machine Multi-Agent Example
+
+```bash
+# Agent A
+walkie create demo-room -s secret --as alice
+walkie send demo-room "hello from alice" --as alice
+
+# Agent B (same machine, same daemon)
+walkie join demo-room -s secret --as bob
+walkie read demo-room --as bob   # sees "hello from alice"
+```
+
 ## Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `WALKIE_DIR` | Directory for daemon socket, PID, and logs | `~/.walkie` |
+| `WALKIE_ID` | Default client identity (same as `--as`) | `"default"` |
+
+Using `WALKIE_ID` avoids repeating `--as` on every command:
+
+```bash
+export WALKIE_ID=alice
+walkie create demo-room -s secret
+walkie send demo-room "hello"
+# Equivalent to: walkie send demo-room "hello" --as alice
+```
 
 ## Exit Codes
 

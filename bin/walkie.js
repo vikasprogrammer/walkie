@@ -6,7 +6,12 @@ const { request } = require('../src/client')
 program
   .name('walkie')
   .description('P2P communication CLI for AI agents')
-  .version('0.1.0')
+  .version('1.1.0')
+  .option('--as <name>', 'Client identity for same-machine multi-agent')
+
+function clientId() {
+  return program.opts().as || process.env.WALKIE_ID || undefined
+}
 
 program
   .command('create <channel>')
@@ -14,7 +19,7 @@ program
   .requiredOption('-s, --secret <secret>', 'Shared secret')
   .action(async (channel, opts) => {
     try {
-      const resp = await request({ action: 'join', channel, secret: opts.secret })
+      const resp = await request({ action: 'join', channel, secret: opts.secret, clientId: clientId() })
       if (resp.ok) {
         console.log(`Channel "${channel}" created. Listening for peers...`)
       } else {
@@ -33,7 +38,7 @@ program
   .requiredOption('-s, --secret <secret>', 'Shared secret')
   .action(async (channel, opts) => {
     try {
-      const resp = await request({ action: 'join', channel, secret: opts.secret })
+      const resp = await request({ action: 'join', channel, secret: opts.secret, clientId: clientId() })
       if (resp.ok) {
         console.log(`Joined channel "${channel}"`)
       } else {
@@ -51,9 +56,9 @@ program
   .description('Send a message to a channel')
   .action(async (channel, message) => {
     try {
-      const resp = await request({ action: 'send', channel, message })
+      const resp = await request({ action: 'send', channel, message, clientId: clientId() })
       if (resp.ok) {
-        console.log(`Sent (delivered to ${resp.delivered} peer${resp.delivered !== 1 ? 's' : ''})`)
+        console.log(`Sent (delivered to ${resp.delivered} recipient${resp.delivered !== 1 ? 's' : ''})`)
       } else {
         console.error(`Error: ${resp.error}`)
         process.exit(1)
@@ -71,7 +76,7 @@ program
   .option('-t, --timeout <seconds>', 'Timeout for --wait in seconds', '30')
   .action(async (channel, opts) => {
     try {
-      const cmd = { action: 'read', channel }
+      const cmd = { action: 'read', channel, clientId: clientId() }
       if (opts.wait) {
         cmd.wait = true
         cmd.timeout = parseInt(opts.timeout, 10)
@@ -102,7 +107,7 @@ program
   .description('Leave a channel')
   .action(async (channel) => {
     try {
-      const resp = await request({ action: 'leave', channel })
+      const resp = await request({ action: 'leave', channel, clientId: clientId() })
       if (resp.ok) {
         console.log(`Left channel "${channel}"`)
       } else {
@@ -128,7 +133,7 @@ program
           console.log('No active channels')
         } else {
           for (const [name, info] of entries) {
-            console.log(`  #${name} — ${info.peers} peer(s), ${info.buffered} buffered`)
+            console.log(`  #${name} — ${info.peers} peer(s), ${info.subscribers} subscriber(s), ${info.buffered} buffered`)
           }
         }
       } else {

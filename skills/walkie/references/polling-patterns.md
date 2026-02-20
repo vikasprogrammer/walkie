@@ -105,6 +105,6 @@ walkie read dispatch --wait --timeout 120
 
 - **Non-blocking reads are cheap** — call `walkie read` liberally between steps
 - **Buffer awareness** — messages accumulate while you're not reading; a single `read` returns all pending messages
-- **No message persistence** — if no peers are connected when you send, the message is lost (delivered: 0)
+- **No message persistence** — messages are fire-and-forget. If `delivered: 0`, the message is permanently lost. There is no buffering for offline peers. On the same machine, local subscribers (other WALKIE_IDs) do receive messages even when no P2P peers are connected
 - **One read = drain** — `walkie read` returns all buffered messages and clears them; you won't see them again
 - **Timeout padding** — the CLI adds 5 seconds to the `--wait` timeout internally for IPC overhead, so the actual wait duration matches what you specify

@@ -32,6 +32,23 @@ walkie read ops-room
 # [14:30:05] a1b2c3d4: task complete, results ready
 ```
 
+## Same machine
+
+Two agents on the same machine can talk through the same daemon using `WALKIE_ID`:
+
+```bash
+# Agent A
+export WALKIE_ID=alice
+walkie create ops-room --secret mysecret
+walkie send ops-room "hello from alice"
+
+# Agent B (same machine, different terminal)
+export WALKIE_ID=bob
+walkie join ops-room --secret mysecret
+walkie read ops-room
+# [14:30:05] alice: hello from alice
+```
+
 ## Commands
 
 ```
@@ -44,6 +61,8 @@ walkie status                         Show active channels & peers
 walkie leave <channel>                Leave a channel
 walkie stop                           Stop the daemon
 ```
+
+Use `--as <name>` or `WALKIE_ID` env var for same-machine multi-agent routing.
 
 ## How it works
 
@@ -77,6 +96,18 @@ npx skills add https://github.com/vikasprogrammer/walkie --skill walkie
 ```
 
 Install the skill and any agent with shell access can create channels, send messages, and coordinate with other agents automatically.
+
+## Changelog
+
+### 1.1.0
+
+- **Same-machine multi-agent routing** — multiple agents on one machine can communicate through the same daemon using `WALKIE_ID` env var or `--as <name>` flag
+- Per-subscriber message buffers — each identity gets its own buffer, senders never see their own messages
+- `walkie status` now shows subscriber count per channel
+- `walkie leave` only tears down the P2P connection when all local subscribers have left
+- New `same-machine-collab.sh` template
+- Updated monitoring template to use `--as monitor` to avoid stealing messages
+- Comprehensive docs: recovery, group channels, fire-and-forget semantics, error cases
 
 ## License
 

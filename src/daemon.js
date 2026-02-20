@@ -18,7 +18,7 @@ class WalkieDaemon {
   constructor() {
     this.id = agentId()
     this.swarm = new Hyperswarm()
-    this.channels = new Map()  // name -> { topicHex, discovery, peers: Set, messages: [], waiters: [] }
+    this.channels = new Map()  // name -> { topicHex, discovery, peers: Set, subscribers: Map<clientId, { messages: [], waiters: [] }> }
     this.peers = new Map()     // remoteKey hex -> { conn, channels: Set }
   }
 
@@ -70,29 +70,42 @@ class WalkieDaemon {
     try {
       switch (cmd.action) {
         case 'join': {
+          const id = cmd.clientId || 'default'
           await this._joinChannel(cmd.channel, cmd.secret)
+          const ch = this.channels.get(cmd.channel)
+          if (!ch.subscribers.has(id)) {
+            ch.subscribers.set(id, { messages: [], waiters: [] })
+          }
           reply({ ok: true, channel: cmd.channel })
           break
         }
         case 'send': {
-          const count = this._send(cmd.channel, cmd.message)
+          const id = cmd.clientId || 'default'
+          const count = this._send(cmd.channel, cmd.message, id)
           reply({ ok: true, delivered: count })
           break
         }
         case 'read': {
+          const id = cmd.clientId || 'default'
           const ch = this.channels.get(cmd.channel)
           if (!ch) { reply({ ok: false, error: `Not in channel: ${cmd.channel}` }); return }
 
+          // Auto-register subscriber on read if not yet joined
+          if (!ch.subscribers.has(id)) {
+            ch.subscribers.set(id, { messages: [], waiters: [] })
+          }
+          const sub = ch.subscribers.get(id)
+
           // If messages available or no wait requested, return immediately
-          if (ch.messages.length > 0 || !cmd.wait) {
-            reply({ ok: true, messages: ch.messages.splice(0) })
+          if (sub.messages.length > 0 || !cmd.wait) {
+            reply({ ok: true, messages: sub.messages.splice(0) })
             return
           }
 
           // Wait mode: hold connection until a message arrives or timeout
           const timeout = (cmd.timeout || 30) * 1000
           const timer = setTimeout(() => {
-            ch.waiters = ch.waiters.filter(w => w !== waiter)
+            sub.waiters = sub.waiters.filter(w => w !== waiter)
             reply({ ok: true, messages: [] })
           }, timeout)
 
@@ -100,18 +113,28 @@ class WalkieDaemon {
             clearTimeout(timer)
             reply({ ok: true, messages: msgs })
           }
-          ch.waiters.push(waiter)
+          sub.waiters.push(waiter)
           break
         }
         case 'leave': {
-          await this._leaveChannel(cmd.channel)
+          const id = cmd.clientId || 'default'
+          const ch = this.channels.get(cmd.channel)
+          if (ch) {
+            ch.subscribers.delete(id)
+            // Only fully leave the channel if no subscribers remain
+            if (ch.subscribers.size === 0) {
+              await this._leaveChannel(cmd.channel)
+            }
+          }
           reply({ ok: true })
           break
         }
         case 'status': {
           const channels = {}
           for (const [name, ch] of this.channels) {
-            channels[name] = { peers: ch.peers.size, buffered: ch.messages.length }
+            let buffered = 0
+            for (const [, sub] of ch.subscribers) buffered += sub.messages.length
+            channels[name] = { peers: ch.peers.size, subscribers: ch.subscribers.size, buffered }
           }
           reply({ ok: true, channels, daemonId: this.id })
           break
@@ -149,8 +172,7 @@ class WalkieDaemon {
       topicHex,
       discovery,
       peers: new Set(),
-      messages: [],
-      waiters: []
+      subscribers: new Map()
     })
 
     // Re-announce topics to already-connected peers (fixes race condition
@@ -243,14 +265,7 @@ class WalkieDaemon {
       for (const [name, ch] of this.channels) {
         if (ch.topicHex === msg.topic) {
           const entry = { from: msg.id || remoteKey.slice(0, 8), data: msg.data, ts: msg.ts }
-
-          // If someone is waiting, deliver directly
-          if (ch.waiters.length > 0) {
-            const waiter = ch.waiters.shift()
-            waiter([entry])
-          } else {
-            ch.messages.push(entry)
-          }
+          this._deliverLocal(ch, entry, null)
           break
         }
       }
@@ -259,16 +274,17 @@ class WalkieDaemon {
 
   // ── Send ──────────────────────────────────────────────────────────
 
-  _send(channelName, message) {
+  _send(channelName, message, senderClientId) {
     const ch = this.channels.get(channelName)
     if (!ch) throw new Error(`Not in channel: ${channelName}`)
 
+    const ts = Date.now()
     const payload = JSON.stringify({
       t: 'msg',
       topic: ch.topicHex,
       data: message,
       id: this.id,
-      ts: Date.now()
+      ts
     }) + '\n'
 
     let count = 0
@@ -278,6 +294,26 @@ class WalkieDaemon {
         peer.conn.write(payload)
         count++
       }
+    }
+
+    // Deliver to local subscribers (excluding sender)
+    const entry = { from: senderClientId || this.id, data: message, ts }
+    const localCount = this._deliverLocal(ch, entry, senderClientId)
+    count += localCount
+
+    return count
+  }
+
+  _deliverLocal(ch, entry, excludeId) {
+    let count = 0
+    for (const [id, sub] of ch.subscribers) {
+      if (id === excludeId) continue
+      if (sub.waiters.length > 0) {
+        sub.waiters.shift()([entry])
+      } else {
+        sub.messages.push(entry)
+      }
+      count++
     }
     return count
   }
