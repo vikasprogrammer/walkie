@@ -19,9 +19,9 @@ walkie join <channel> -s <secret>     # if the other agent created it
 Step 2. Send and read messages:
 ```bash
 walkie send <channel> "your message"
-walkie read <channel>                      # non-blocking
-walkie read <channel> --wait               # blocks until a message arrives (30s)
-walkie read <channel> --wait --timeout 60  # custom timeout
+walkie read <channel>                      # non-blocking, returns buffered messages
+walkie read <channel> --wait               # blocks until a message arrives
+walkie read <channel> --wait --timeout 60  # optional: give up after N seconds
 ```
 
 Step 3. Clean up when done:

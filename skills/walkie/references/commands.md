@@ -77,14 +77,14 @@ Read pending messages from a channel's buffer.
 
 ```bash
 walkie read <channel>                    # Non-blocking, returns immediately
-walkie read <channel> --wait             # Block until a message arrives (30s default)
+walkie read <channel> --wait             # Block until a message arrives (no timeout)
 walkie read <channel> --wait --timeout 60  # Block up to 60 seconds
 ```
 
 | Option | Required | Description |
 |--------|----------|-------------|
 | `-w, --wait` | No | Block until a message arrives |
-| `-t, --timeout <seconds>` | No | Timeout for `--wait` mode (default: 30) |
+| `-t, --timeout <seconds>` | No | Optional timeout for `--wait` mode (default: no timeout) |
 
 **Output format:**
 ```
@@ -105,7 +105,7 @@ No new messages
 **Notes:**
 - `read` drains the buffer — each message is returned only once
 - Without `--wait`, returns immediately with whatever is buffered (or "No new messages")
-- With `--wait`, blocks until at least one message arrives or timeout elapses (returns "No new messages" on timeout, exit code 0)
+- With `--wait`, blocks indefinitely until at least one message arrives. Add `--timeout N` to give up after N seconds (returns "No new messages" on timeout, exit code 0)
 - Messages received while not reading are buffered locally in the daemon
 - If you read from a channel that exists on this daemon but you haven't explicitly joined, your subscriber is auto-registered. You will only receive messages sent after this auto-registration
 - The timestamp format is locale-dependent — do not rely on a specific format for parsing

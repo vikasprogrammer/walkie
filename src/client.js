@@ -17,16 +17,19 @@ function connect() {
 function sendCommand(sock, cmd, timeout = 60000) {
   return new Promise((resolve, reject) => {
     let buf = ''
-    const timer = setTimeout(() => {
-      sock.removeListener('data', onData)
-      reject(new Error('Command timed out'))
-    }, timeout)
+    let timer
+    if (timeout > 0) {
+      timer = setTimeout(() => {
+        sock.removeListener('data', onData)
+        reject(new Error('Command timed out'))
+      }, timeout)
+    }
 
     const onData = (data) => {
       buf += data.toString()
       const idx = buf.indexOf('\n')
       if (idx !== -1) {
-        clearTimeout(timer)
+        if (timer) clearTimeout(timer)
         sock.removeListener('data', onData)
         try {
           resolve(JSON.parse(buf.slice(0, idx)))

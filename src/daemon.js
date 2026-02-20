@@ -102,15 +102,17 @@ class WalkieDaemon {
             return
           }
 
-          // Wait mode: hold connection until a message arrives or timeout
-          const timeout = (cmd.timeout || 30) * 1000
-          const timer = setTimeout(() => {
-            sub.waiters = sub.waiters.filter(w => w !== waiter)
-            reply({ ok: true, messages: [] })
-          }, timeout)
+          // Wait mode: hold connection until a message arrives
+          let timer
+          if (cmd.timeout) {
+            timer = setTimeout(() => {
+              sub.waiters = sub.waiters.filter(w => w !== waiter)
+              reply({ ok: true, messages: [] })
+            }, cmd.timeout * 1000)
+          }
 
           const waiter = (msgs) => {
-            clearTimeout(timer)
+            if (timer) clearTimeout(timer)
             if (socket.writable) {
               reply({ ok: true, messages: msgs })
             } else {
@@ -118,12 +120,11 @@ class WalkieDaemon {
               sub.messages.unshift(...msgs)
             }
           }
-          waiter._socket = socket
           sub.waiters.push(waiter)
 
           // Clean up waiter if socket closes before message arrives
           socket.once('close', () => {
-            clearTimeout(timer)
+            if (timer) clearTimeout(timer)
             sub.waiters = sub.waiters.filter(w => w !== waiter)
           })
           break

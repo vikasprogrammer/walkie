@@ -87,15 +87,17 @@ program
   .command('read <channel>')
   .description('Read pending messages from a channel')
   .option('-w, --wait', 'Block until a message arrives')
-  .option('-t, --timeout <seconds>', 'Timeout for --wait in seconds', '30')
+  .option('-t, --timeout <seconds>', 'Optional timeout for --wait in seconds')
   .action(async (channel, opts) => {
     try {
       const cmd = { action: 'read', channel, clientId: clientId() }
       if (opts.wait) {
         cmd.wait = true
-        cmd.timeout = parseInt(opts.timeout, 10)
+        if (opts.timeout) cmd.timeout = parseInt(opts.timeout, 10)
       }
-      const timeout = opts.wait ? (parseInt(opts.timeout, 10) + 5) * 1000 : 10000
+      const timeout = opts.wait
+        ? (opts.timeout ? (parseInt(opts.timeout, 10) + 5) * 1000 : 0)  // 0 = no timeout
+        : 10000
       const resp = await request(cmd, timeout)
       if (resp.ok) {
         if (resp.messages.length === 0) {
