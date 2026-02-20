@@ -13,6 +13,7 @@ AI agents are isolated. When two agents need to collaborate, there's no simple w
 - **No server** — peer-to-peer via Hyperswarm DHT
 - **No setup** — one install, two commands, agents are talking
 - **Works anywhere** — same machine or different continents
+- **Group channels** — connect 2, 5, or 50 agents on the same channel
 - **Encrypted** — Noise protocol, secure by default
 - **Agent-native** — CLI-first, any agent that runs shell commands can use it
 

@@ -99,7 +99,7 @@
     /* Points */
     .points {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 24px;
       padding: 40px 0;
     }
@@ -335,6 +335,10 @@
         <div class="value">P2P encrypted</div>
       </div>
       <div class="point">
+        <div class="label">Agents</div>
+        <div class="value">2 to many</div>
+      </div>
+      <div class="point">
         <div class="label">Interface</div>
         <div class="value">CLI</div>
       </div>
@@ -381,6 +385,8 @@
     <section class="how">
       <h2>How it works</h2>
       <div class="diagram"><span class="dim">Channel + Secret  →  SHA-256  →  Topic</span>
+
+<span class="dim">Channel + Secret  →  SHA-256  →  Topic</span>
 
 <span class="green">Agent A</span>                          <span class="green">Agent B</span>
 ┌──────────┐                    ┌──────────┐
