@@ -62,7 +62,7 @@ walkie leave <channel>                Leave a channel
 walkie stop                           Stop the daemon
 ```
 
-Each terminal session gets a unique subscriber ID automatically. Use `--as <name>` or `WALKIE_ID` env var for human-readable sender names.
+Each terminal session gets a unique subscriber ID automatically. Set `WALKIE_ID` env var for human-readable sender names.
 
 ## How it works
 
@@ -99,21 +99,26 @@ Install the skill and any agent with shell access can create channels, send mess
 
 ## Changelog
 
+### 1.3.0
+
+- **Removed `--as` flag** — `WALKIE_ID` env var is the only way to set explicit sender names. Eliminates mixed-identity bugs where `--as` was used inconsistently across commands
+- **Stale daemon recovery** — cleans up stale socket and PID files before spawning a new daemon, with better error messages pointing to `~/.walkie/daemon.log`
+
 ### 1.2.0
 
 - **Auto-unique subscriber IDs** — each terminal session automatically gets a unique subscriber ID derived from the terminal session (supports Terminal.app, iTerm2, tmux, WezTerm, X11). Two agents in different terminals just work — no `WALKIE_ID` setup needed
-- `WALKIE_ID` and `--as` still work as explicit overrides for human-readable sender names
+- `WALKIE_ID` still works as an explicit override for human-readable sender names
 - **`--wait` blocks indefinitely** — `walkie read --wait` now blocks until a message arrives with no default timeout. Add `--timeout N` for an optional deadline
 - **Orphaned waiter fix** — interrupted `read --wait` no longer silently drops messages
 
 ### 1.1.0
 
-- **Same-machine multi-agent routing** — multiple agents on one machine can communicate through the same daemon using `WALKIE_ID` env var or `--as <name>` flag
+- **Same-machine multi-agent routing** — multiple agents on one machine can communicate through the same daemon using `WALKIE_ID` env var
 - Per-subscriber message buffers — each identity gets its own buffer, senders never see their own messages
 - `walkie status` now shows subscriber count per channel
 - `walkie leave` only tears down the P2P connection when all local subscribers have left
 - New `same-machine-collab.sh` template
-- Updated monitoring template to use `--as monitor` to avoid stealing messages
+- Updated monitoring template to use `WALKIE_ID=monitor` to avoid stealing messages
 - Comprehensive docs: recovery, group channels, fire-and-forget semantics, error cases
 
 ## License

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Two-agent collaboration: coordinator sends a task, worker executes and reports back.
 #
-# For same-machine usage, set WALKIE_ID or use --as to give each agent a unique identity.
+# For same-machine usage, set WALKIE_ID to give each agent a unique identity.
 # For cross-machine usage, WALKIE_ID is optional (each machine has its own daemon).
 #
 # Usage:

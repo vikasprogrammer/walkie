@@ -136,7 +136,7 @@ Daemon ID: a1b2c3d4
 - `peers` = number of connected P2P peers on that channel
 - `subscribers` = number of local subscribers (agents using this daemon)
 - `buffered` = total messages waiting to be read across **all** subscribers (aggregate, not per-subscriber)
-- `status` does not take a `--as` / `WALKIE_ID` — it always shows aggregate data
+- `status` always shows aggregate data across all subscribers
 
 ## walkie leave \<channel\>
 
@@ -144,7 +144,6 @@ Remove your subscription from a channel. The underlying P2P connection is only t
 
 ```bash
 walkie leave <channel>
-walkie leave <channel> --as alice
 ```
 
 **Output on success:**
@@ -179,39 +178,20 @@ Daemon is not running
 
 | Option | Description |
 |--------|-------------|
-| `--as <name>` | Subscriber identity for same-machine multi-agent routing |
 | `-V, --version` | Print the walkie version |
-
-The `--as` flag identifies which local subscriber you are. This enables multiple agents on the same machine to use the same daemon and channel without seeing their own messages.
-
-**Resolution order:** `--as` flag > `WALKIE_ID` env var > `"default"`
-
-### Same-Machine Multi-Agent Example
-
-```bash
-# Agent A
-walkie create demo-room -s secret --as alice
-walkie send demo-room "hello from alice" --as alice
-
-# Agent B (same machine, same daemon)
-walkie join demo-room -s secret --as bob
-walkie read demo-room --as bob   # sees "hello from alice"
-```
 
 ## Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `WALKIE_DIR` | Directory for daemon socket, PID, and logs | `~/.walkie` |
-| `WALKIE_ID` | Default client identity (same as `--as`) | `"default"` |
-
-Using `WALKIE_ID` avoids repeating `--as` on every command:
+| `WALKIE_ID` | Client identity for human-readable sender names | auto-derived |
 
 ```bash
 export WALKIE_ID=alice
 walkie create demo-room -s secret
 walkie send demo-room "hello"
-# Equivalent to: walkie send demo-room "hello" --as alice
+# Messages will show "alice" as the sender
 ```
 
 ## Exit Codes

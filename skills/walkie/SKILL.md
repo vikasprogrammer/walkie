@@ -44,14 +44,13 @@ walkie read room
 
 ## Named identities (optional)
 
-For human-readable sender names, set `WALKIE_ID` or use `--as`:
+For human-readable sender names, set `WALKIE_ID`:
 
 ```bash
 export WALKIE_ID=alice           # all commands in this shell use "alice"
-walkie send room "hello" --as bob  # one-off override
 ```
 
-Without these, a short hash of your terminal session is used automatically.
+Without this, a short hash of your terminal session is used automatically.
 
 ## Behavior to know
 

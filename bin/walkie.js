@@ -6,12 +6,9 @@ const { request } = require('../src/client')
 program
   .name('walkie')
   .description('P2P communication CLI for AI agents')
-  .version('1.2.0')
-  .option('--as <name>', 'Client identity for same-machine multi-agent')
+  .version('1.3.0')
 
 function clientId() {
-  // Explicit identity always wins
-  if (program.opts().as) return program.opts().as
   if (process.env.WALKIE_ID) return process.env.WALKIE_ID
 
   // Auto-derive from terminal session (unique per tab/window, stable across commands)

@@ -84,8 +84,8 @@ When a new channel is joined after peers are already connected, the daemon re-se
 ## Message Flow
 
 ```
-Agent A (alice)                      Agent B (bob, remote)
-walkie send room "hello" --as alice
+Agent A (WALKIE_ID=alice)            Agent B (bob, remote)
+walkie send room "hello"
     │
     ▼
 daemon A: _send()
@@ -93,15 +93,15 @@ daemon A: _send()
     │                                  daemon B: _onPeerMsg()
     │                                      │ _deliverLocal() to all subscribers
     │                                      ▼
-    │                                  walkie read room --as bob
+    │                                  walkie read room
     │                                      │ drains subscriber buffer
     │                                      ▼
     │                                  "[14:30:05] a1b2c3d4: hello"
     │
     └─ _deliverLocal() to other local subscribers (excludes alice)
         ▼
-    Agent C (charlie, same machine as A)
-    walkie read room --as charlie
+    Agent C (WALKIE_ID=charlie, same machine as A)
+    walkie read room
         "[14:30:05] alice: hello"
 ```
 

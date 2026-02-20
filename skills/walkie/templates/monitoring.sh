@@ -2,7 +2,7 @@
 # Monitor agent activity on a channel from a separate terminal.
 # Continuously polls for messages and prints them.
 #
-# IMPORTANT: Uses --as monitor to avoid stealing messages from the agents
+# Uses WALKIE_ID=monitor to avoid stealing messages from the agents
 # being monitored. Without a unique identity, reads would drain messages
 # intended for the monitored agents.
 #
@@ -17,15 +17,16 @@ CHANNEL="${1:?Channel name required}"
 SECRET="${2:?Secret required}"
 INTERVAL="${3:-3}"
 
-walkie join "$CHANNEL" -s "$SECRET" --as monitor
+export WALKIE_ID=monitor
+walkie join "$CHANNEL" -s "$SECRET"
 echo "Monitoring channel: $CHANNEL (poll every ${INTERVAL}s)"
 echo "Press Ctrl+C to stop"
 echo "---"
 
-trap 'echo ""; echo "Leaving channel..."; walkie leave "$CHANNEL" --as monitor; exit 0' INT TERM
+trap 'echo ""; echo "Leaving channel..."; walkie leave "$CHANNEL"; exit 0' INT TERM
 
 while true; do
-  MESSAGES=$(walkie read "$CHANNEL" --as monitor 2>/dev/null || true)
+  MESSAGES=$(walkie read "$CHANNEL" 2>/dev/null || true)
   if [ -n "$MESSAGES" ] && [ "$MESSAGES" != "No new messages" ]; then
     echo "$MESSAGES"
   fi
