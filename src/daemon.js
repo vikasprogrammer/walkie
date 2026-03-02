@@ -2,11 +2,15 @@ const Hyperswarm = require('hyperswarm')
 const net = require('net')
 const fs = require('fs')
 const path = require('path')
+const os = require('os')
 const { deriveTopic, agentId } = require('./crypto')
 const store = require('./store')
 
-const WALKIE_DIR = process.env.WALKIE_DIR || path.join(process.env.HOME, '.walkie')
-const SOCKET_PATH = path.join(WALKIE_DIR, 'daemon.sock')
+const IS_WINDOWS = process.platform === 'win32'
+const WALKIE_DIR = process.env.WALKIE_DIR || path.join(os.homedir(), '.walkie')
+const IPC_PATH = IS_WINDOWS
+  ? '\\\\.\\pipe\\walkie-daemon'
+  : path.join(WALKIE_DIR, 'daemon.sock')
 const PID_FILE = path.join(WALKIE_DIR, 'daemon.pid')
 const LOG_FILE = path.join(WALKIE_DIR, 'daemon.log')
 
@@ -33,11 +37,12 @@ class WalkieDaemon {
     fs.writeFileSync(PID_FILE, process.pid.toString())
 
     // Clean stale socket
-    try { fs.unlinkSync(SOCKET_PATH) } catch {}
+    try { fs.unlinkSync(IPC_PATH) } catch {}
 
     // IPC server for CLI commands
     const server = net.createServer(sock => this._onIPC(sock))
-    server.listen(SOCKET_PATH)
+    await new Promise(resolve => server.listen(IPC_PATH, resolve))
+    log(`Daemon listening on ${IPC_PATH}`)
 
     // P2P connections
     this.swarm.on('connection', (conn, info) => this._onPeer(conn, info))
@@ -466,7 +471,7 @@ class WalkieDaemon {
 
   async shutdown() {
     if (this._compactTimer) clearInterval(this._compactTimer)
-    try { fs.unlinkSync(SOCKET_PATH) } catch {}
+    try { fs.unlinkSync(IPC_PATH) } catch {}
     try { fs.unlinkSync(PID_FILE) } catch {}
     await this.swarm.destroy()
     process.exit(0)
