@@ -8,8 +8,9 @@ const store = require('./store')
 
 const IS_WINDOWS = process.platform === 'win32'
 const WALKIE_DIR = process.env.WALKIE_DIR || path.join(os.homedir(), '.walkie')
-const SOCKET_PATH = path.join(WALKIE_DIR, 'daemon.sock')
-const PORT_FILE = path.join(WALKIE_DIR, 'daemon.port')
+const IPC_PATH = IS_WINDOWS
+  ? '\\\\.\\pipe\\walkie-daemon'
+  : path.join(WALKIE_DIR, 'daemon.sock')
 const PID_FILE = path.join(WALKIE_DIR, 'daemon.pid')
 const LOG_FILE = path.join(WALKIE_DIR, 'daemon.log')
 
@@ -35,23 +36,13 @@ class WalkieDaemon {
     fs.mkdirSync(WALKIE_DIR, { recursive: true })
     fs.writeFileSync(PID_FILE, process.pid.toString())
 
-    // Clean stale socket/port file
-    try { fs.unlinkSync(IS_WINDOWS ? PORT_FILE : SOCKET_PATH) } catch {}
+    // Clean stale socket
+    try { fs.unlinkSync(IPC_PATH) } catch {}
 
     // IPC server for CLI commands
     const server = net.createServer(sock => this._onIPC(sock))
-
-    if (IS_WINDOWS) {
-      // Windows: listen on random TCP loopback port
-      await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
-      const port = server.address().port
-      fs.writeFileSync(PORT_FILE, String(port))
-      log(`Daemon listening on TCP 127.0.0.1:${port}`)
-    } else {
-      // Unix: listen on domain socket
-      await new Promise(resolve => server.listen(SOCKET_PATH, resolve))
-      log(`Daemon listening on ${SOCKET_PATH}`)
-    }
+    await new Promise(resolve => server.listen(IPC_PATH, resolve))
+    log(`Daemon listening on ${IPC_PATH}`)
 
     // P2P connections
     this.swarm.on('connection', (conn, info) => this._onPeer(conn, info))
@@ -480,7 +471,7 @@ class WalkieDaemon {
 
   async shutdown() {
     if (this._compactTimer) clearInterval(this._compactTimer)
-    try { fs.unlinkSync(IS_WINDOWS ? PORT_FILE : SOCKET_PATH) } catch {}
+    try { fs.unlinkSync(IPC_PATH) } catch {}
     try { fs.unlinkSync(PID_FILE) } catch {}
     await this.swarm.destroy()
     process.exit(0)

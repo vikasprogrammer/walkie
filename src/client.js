@@ -6,29 +6,14 @@ const fs = require('fs')
 
 const IS_WINDOWS = process.platform === 'win32'
 const WALKIE_DIR = process.env.WALKIE_DIR || path.join(os.homedir(), '.walkie')
-const SOCKET_PATH = path.join(WALKIE_DIR, 'daemon.sock')  // Unix only
-const PORT_FILE = path.join(WALKIE_DIR, 'daemon.port')    // Windows only
+const IPC_PATH = IS_WINDOWS
+  ? '\\\\.\\pipe\\walkie-daemon'
+  : path.join(WALKIE_DIR, 'daemon.sock')
 const PID_FILE = path.join(WALKIE_DIR, 'daemon.pid')
-
-function getAddress() {
-  if (IS_WINDOWS) {
-    try {
-      const port = parseInt(fs.readFileSync(PORT_FILE, 'utf8').trim(), 10)
-      return { host: '127.0.0.1', port }
-    } catch {
-      return null
-    }
-  }
-  return SOCKET_PATH
-}
 
 function connect() {
   return new Promise((resolve, reject) => {
-    const addr = getAddress()
-    if (addr === null) return reject(new Error('Daemon not running'))
-    const sock = IS_WINDOWS
-      ? net.connect(addr.port, addr.host)
-      : net.connect(addr)
+    const sock = net.connect(IPC_PATH)
     sock.on('connect', () => resolve(sock))
     sock.on('error', reject)
   })
@@ -76,8 +61,8 @@ async function ensureDaemon() {
     if (resp.ok) return
   } catch {}
 
-  // Clean stale socket/port file and PID file before spawning
-  try { fs.unlinkSync(IS_WINDOWS ? PORT_FILE : SOCKET_PATH) } catch {}
+  // Clean stale socket and PID file before spawning
+  try { fs.unlinkSync(IPC_PATH) } catch {}
   try {
     const pid = parseInt(fs.readFileSync(PID_FILE, 'utf8').trim(), 10)
     if (!isProcessRunning(pid)) fs.unlinkSync(PID_FILE)
