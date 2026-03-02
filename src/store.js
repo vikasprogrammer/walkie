@@ -1,7 +1,8 @@
 const fs = require('fs')
 const path = require('path')
+const os = require('os')
 
-const WALKIE_DIR = process.env.WALKIE_DIR || path.join(process.env.HOME, '.walkie')
+const WALKIE_DIR = process.env.WALKIE_DIR || path.join(os.homedir(), '.walkie')
 const MSG_DIR = path.join(WALKIE_DIR, 'messages')
 
 function sanitizeName(channel) {
