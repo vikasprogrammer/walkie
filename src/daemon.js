@@ -200,7 +200,8 @@ class WalkieDaemon {
           break
         }
         case 'ping': {
-          reply({ ok: true })
+          const pkg = require('../package.json')
+          reply({ ok: true, version: pkg.version })
           break
         }
         case 'stop': {

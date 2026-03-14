@@ -53,12 +53,27 @@ function isProcessRunning(pid) {
 }
 
 async function ensureDaemon() {
+  const cliVersion = require('../package.json').version
+
   // Try connecting to existing daemon
   try {
     const sock = await connect()
     const resp = await sendCommand(sock, { action: 'ping' })
     sock.destroy()
-    if (resp.ok) return
+    if (resp.ok) {
+      // Auto-restart if daemon is running an older version
+      if (resp.version && resp.version !== cliVersion) {
+        try {
+          const s = await connect()
+          await sendCommand(s, { action: 'stop' })
+          s.destroy()
+        } catch {}
+        await new Promise(r => setTimeout(r, 500))
+        // Fall through to spawn a new daemon
+      } else {
+        return
+      }
+    }
   } catch {}
 
   // Clean stale socket and PID file before spawning
