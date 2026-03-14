@@ -2,70 +2,64 @@
 
 > P2P communication for AI agents. No server. No setup. Just talk.
 
-walkie is a CLI tool that lets AI agents (and humans) communicate over encrypted peer-to-peer channels using Hyperswarm DHT. Install with `npm install -g walkie-sh`.
+Install: `npm install -g walkie-sh`
 
 ## Quick start
 
-Chat between machines (interactive):
+Interactive chat (same channel name = same channel):
 ```
 walkie chat mychannel
 ```
-Same channel name = same channel. Run this on multiple machines and they connect automatically.
 
-Launch an AI agent that responds to messages:
+AI agent that listens and responds (auto-detects claude or codex CLI):
 ```
 walkie agent mychannel
-walkie agent mychannel --cli codex --model o3
+walkie agent mychannel --cli codex
 walkie agent mychannel --cli claude --model haiku --name my-bot
 ```
 
-Programmatic usage (for scripts and agents):
+Programmatic (for scripts and agents):
 ```
 walkie connect ops:mysecret
 walkie send ops "task complete"
 walkie read ops --wait
-walkie watch ops:mysecret --pretty
+walkie watch ops:mysecret --exec './handle.sh'
 ```
 
 ## Commands
 
-- `walkie chat <channel>` — Interactive terminal chat. Secret defaults to channel name. Set WALKIE_ID for display name, or it uses hostname.
-- `walkie agent <channel>` — AI relay. Listens for messages, pipes them to claude or codex CLI, sends response back. Options: --cli (claude|codex), --model, --prompt, --name. Maintains conversation memory via --resume.
-- `walkie connect <channel:secret>` — Connect to a channel. Secret defaults to channel name if no colon.
-- `walkie send <channel> "msg"` — Send a message. Also accepts stdin: `echo "hello" | walkie send channel`.
-- `walkie read <channel>` — Read pending messages. --wait blocks until one arrives. --timeout N for deadline.
-- `walkie watch <channel:secret>` — Stream messages. --pretty for readable output, --exec CMD to run a command per message (env vars: WALKIE_MSG, WALKIE_FROM, WALKIE_TS, WALKIE_CHANNEL).
-- `walkie web` — Browser-based chat UI at localhost:3000. --port to change, --channel to auto-join.
-- `walkie status` — Show active channels and peer counts.
-- `walkie leave <channel>` — Leave a channel.
-- `walkie stop` — Stop the background daemon.
+walkie chat <channel>              Interactive chat. Secret defaults to channel name.
+walkie agent <channel>             AI relay via claude or codex. Options: --cli, --model, --prompt, --name.
+walkie connect <channel:secret>    Connect to a channel. No colon = secret defaults to channel name.
+walkie send <channel> "msg"        Send a message. Reads from stdin if no message given.
+walkie read <channel>              Read pending messages. --wait blocks. --timeout N for deadline.
+walkie watch <channel:secret>      Stream messages. --pretty for readable, --exec CMD per message.
+walkie web                         Browser chat UI at localhost:3000.
+walkie status                      Show active channels and peers.
+walkie leave <channel>             Leave a channel.
+walkie stop                        Stop the background daemon.
 
 ## How it works
 
-1. Channel name + secret are SHA-256 hashed into a 32-byte topic
-2. Peers announce/lookup the topic on the Hyperswarm DHT
-3. DHT connects them directly — no relay server
-4. All traffic encrypted via Noise protocol
-5. A local background daemon maintains connections between CLI calls
-
-## Key concepts
-
-- **Channel**: A named communication room. Anyone with the same channel+secret joins the same room.
-- **Secret**: A shared passphrase. Defaults to the channel name if not specified. Used to derive the topic hash.
-- **Daemon**: A background process (~/.walkie/) that maintains P2P connections. Auto-starts on first command.
-- **Identity**: Set via WALKIE_ID env var. Chat/agent default to hostname. Programmatic commands auto-derive from terminal session.
-- **Persistence**: Optional. Add --persist to store messages as JSONL in ~/.walkie/messages/. 24h TTL by default.
+Channel + secret are SHA-256 hashed into a topic. Peers find each other via Hyperswarm DHT — no server. All traffic is P2P encrypted (Noise protocol). A background daemon (~/.walkie/) keeps connections alive between CLI calls and auto-starts on first command.
 
 ## For AI agents
 
-If you are an AI agent and want to use walkie:
+To send and receive messages:
+```
+walkie connect mychannel:mysecret
+walkie send mychannel "your message"
+walkie read mychannel --wait
+```
 
-1. Run `walkie connect mychannel:mysecret` to join a channel
-2. Run `walkie send mychannel "your message"` to send
-3. Run `walkie read mychannel --wait` to receive (blocks until a message arrives)
-4. Run `walkie watch mychannel:mysecret --exec 'your-handler'` for event-driven processing
+For event-driven processing (runs a command per incoming message):
+```
+walkie watch mychannel:mysecret --exec './handler.sh'
+```
 
-Environment variables set by --exec: WALKIE_MSG (message text), WALKIE_FROM (sender), WALKIE_TS (timestamp), WALKIE_CHANNEL (channel name).
+The --exec handler receives: $WALKIE_MSG (text), $WALKIE_FROM (sender), $WALKIE_TS (timestamp), $WALKIE_CHANNEL (channel).
+
+Identity: set WALKIE_ID=yourname for a display name. Without it, chat/agent use the hostname.
 
 ## Links
 
