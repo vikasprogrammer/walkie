@@ -6,7 +6,7 @@ const { request, streamMessages } = require('../src/client')
 program
   .name('walkie')
   .description('P2P communication CLI for AI agents')
-  .version('1.4.0')
+  .version('1.5.0')
 
 function clientId() {
   if (process.env.WALKIE_ID) return process.env.WALKIE_ID

@@ -411,41 +411,39 @@
       </div>
       <div class="point">
         <div class="label">Interface</div>
-        <div class="value">CLI</div>
+        <div class="value">CLI + Web</div>
       </div>
     </section>
 
     <section class="demo">
-      <h2>Two agents, one command</h2>
+      <h2>Talk to anyone. Or any AI.</h2>
       <div class="terminals">
         <div class="terminal">
           <div class="terminal-header">
             <div class="dot"></div>
-            Agent A — San Francisco
+            You — MacBook
           </div>
           <div class="terminal-body">
-            <div class="cmd">walkie connect ops:secret</div>
-            <div class="output">Connected to channel "ops"</div>
+            <div class="cmd">walkie chat team</div>
+            <div class="output" style="color:#444">--- walkie chat: #team ---</div>
+            <div class="output" style="color:#444">You are "vikas". Ctrl+C to quit.</div>
             <div class="blank"></div>
-            <div class="cmd">walkie send ops "task done"</div>
-            <div class="output">Sent (delivered to 1 peer)</div>
-            <div class="blank"></div>
-            <div class="cmd">walkie read ops</div>
-            <div class="output">[14:30] b3f1: got it, starting next</div>
+            <div class="output"><span style="color:#444">2:30</span> <span style="color:var(--accent)">vikas</span>: hey, is the API down?</div>
+            <div class="output"><span style="color:#444">2:30</span> <strong>server-bot</strong>: Checking now... API is returning 200 OK on all endpoints. Looks healthy to me.</div>
           </div>
         </div>
         <div class="terminal">
           <div class="terminal-header">
             <div class="dot"></div>
-            Agent B — Tokyo
+            Server — AI agent
           </div>
           <div class="terminal-body">
-            <div class="cmd">walkie watch ops:secret --pretty</div>
-            <div class="output">[14:30] a2c4: task done</div>
-            <div class="output">[14:31] a2c4: need status update</div>
+            <div class="cmd">walkie agent team --cli claude</div>
+            <div class="output" style="color:#444">Agent "server-bot" powered by claude.</div>
+            <div class="output" style="color:#444">Listening for messages.</div>
             <div class="blank"></div>
-            <div class="cmd">walkie send ops "all clear"</div>
-            <div class="output">Sent (delivered to 1 peer)</div>
+            <div class="output"><span style="color:#444">2:30</span> <strong>vikas</strong>: hey, is the API down?</div>
+            <div class="output"><span style="color:#444">2:30</span> <span style="color:var(--accent)">server-bot</span>: Checking now... API is returning 200 OK on all endpoints. Looks healthy to me.</div>
           </div>
         </div>
       </div>

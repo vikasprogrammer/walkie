@@ -11,44 +11,77 @@ npm install -g walkie-sh
 AI agents are isolated. When two agents need to collaborate, there's no simple way for them to talk directly. Walkie gives them a walkie-talkie — pick a channel, share a secret, and they find each other automatically over the internet.
 
 - **No server** — peer-to-peer via Hyperswarm DHT
-- **No setup** — one install, two commands, agents are talking
+- **No setup** — one install, one command
 - **Works anywhere** — same machine or different continents
-- **Group channels** — connect 2, 5, or 50 agents on the same channel
 - **Encrypted** — Noise protocol, secure by default
 - **Agent-native** — CLI-first, any agent that runs shell commands can use it
 
 ## Quick start
 
-**Agent A** (on any machine):
+### Chat between machines
+
+Same room name = same room. That's it.
+
+```bash
+# Your laptop
+walkie chat family
+
+# Brother's laptop
+walkie chat family
+
+# Your server
+walkie chat family
+```
+
+Type a message, hit Enter, everyone sees it. Identity defaults to your hostname, or set `WALKIE_ID=yourname`.
+
+### AI agent that responds to messages
+
+Launch an AI agent that listens on a channel and responds using Claude Code or Codex CLI:
+
+```bash
+# Start an agent (auto-detects claude or codex)
+walkie agent myroom
+
+# Or pick explicitly
+walkie agent myroom --cli codex
+walkie agent myroom --cli claude --model haiku --name my-bot
+```
+
+Now anyone on that room talks to your AI:
+
+```bash
+walkie chat myroom
+> hey, what's the weather API endpoint?
+# agent responds automatically
+```
+
+The agent maintains conversation memory across messages via `--resume`.
+
+### Programmatic usage (for agents)
+
 ```bash
 walkie connect ops-room:mysecret
 walkie send ops-room "task complete, results ready"
+walkie read ops-room --wait
+walkie watch ops-room:mysecret --exec 'echo $WALKIE_MSG'
 ```
-
-**Agent B** (on any other machine, or a different terminal on the same machine):
-```bash
-walkie connect ops-room:mysecret
-walkie read ops-room
-# [14:30:05] a1b2c3d4: task complete, results ready
-```
-
-Works the same whether agents are on the same machine or different continents.
 
 ## Commands
 
 ```
-walkie connect <channel>:<secret>     Connect to a channel
-walkie send <channel> "message"       Send a message (or pipe from stdin)
-walkie read <channel>                 Read pending messages
-walkie read <channel> --wait          Block until a message arrives
-walkie watch <channel>:<secret>       Stream messages (JSONL, --pretty, --exec)
-walkie status                         Show active channels & peers
-walkie leave <channel>                Leave a channel
-walkie web                            Start web-based chat UI
-walkie stop                           Stop the daemon
+walkie chat <room>                       Interactive chat (room name = secret)
+walkie agent <room>                      AI agent relay (claude/codex)
+walkie connect <channel>:<secret>        Connect to a channel
+walkie send <channel> "message"          Send a message (or pipe from stdin)
+walkie read <channel>                    Read pending messages
+walkie read <channel> --wait             Block until a message arrives
+walkie watch <channel>:<secret>          Stream messages (JSONL, --pretty, --exec)
+walkie web                               Web-based chat UI
+walkie status                            Show active channels & peers
+walkie leave <channel>                   Leave a channel
+walkie stop                              Stop the daemon
 ```
-
-Each terminal session gets a unique subscriber ID automatically. Set `WALKIE_ID` env var for human-readable sender names.
 
 ## How it works
 
@@ -70,24 +103,12 @@ Agent A                Agent B
 
 ![walkie web UI](assets/walkie-web.png)
 
-Want to watch your agents talk, or jump into the conversation from a browser?
-
 ```bash
 walkie web
 # walkie web UI → http://localhost:3000
 ```
 
-Open the URL, join a channel with the same secret your agents use, and you'll see messages in real-time. Click your name in the top-right to set a human-readable identity. Session persists across page refreshes.
-
-Use `-p` to change the port: `walkie web -p 8080`
-
-## Use cases
-
-- **Multi-agent collaboration** — agents coordinate tasks in real-time
-- **Agent delegation** — one agent sends work to another and waits for results
-- **Agent monitoring** — watch what your agents are doing from another terminal
-- **Cross-machine pipelines** — chain agents across different servers
-- **Human-in-the-loop** — observe and participate in agent conversations via the web UI
+Join a channel, see messages in real-time. Browser notifications when the tab is unfocused. Secret is optional — defaults to channel name, same as the CLI.
 
 ## Skill
 
@@ -97,9 +118,15 @@ Walkie ships with a [skill](skills/walkie/SKILL.md) so AI agents can use it out 
 npx skills add https://github.com/vikasprogrammer/walkie --skill walkie
 ```
 
-Install the skill and any agent with shell access can create channels, send messages, and coordinate with other agents automatically.
-
 ## Changelog
+
+### 1.5.0
+
+- **`walkie chat <room>`** — interactive terminal chat. One command, same room name = same room. Identity defaults to hostname or `WALKIE_ID` env var
+- **`walkie agent <room>`** — launch an AI agent that listens on a channel and responds. Auto-detects Claude Code or Codex CLI, with `--cli`, `--model`, `--prompt`, `--name` options. Maintains conversation memory across messages via `--resume`. Announces online/offline status
+- **Web UI: browser notifications** — desktop notifications when tab is unfocused, title badge showing unread count
+- **Web UI: optional secret** — secret field now defaults to channel name, matching CLI behavior. URL params support `?c=room` without requiring `?c=room:secret`
+- **Windows support** — daemon IPC uses named pipes on Windows instead of Unix sockets
 
 ### 1.4.0
 
