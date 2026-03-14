@@ -90,10 +90,12 @@ program
   .command('chat <channel>')
   .description('Interactive chat — same channel name = same channel')
   .option('--secret <secret>', 'Custom secret (default: channel name)')
-  .action(async (channel, opts) => {
+  .action(async (channelArg, opts) => {
     const readline = require('readline')
     const name = chatName()
-    const secret = opts.secret || channel
+    const parsed = parseChannelArg(channelArg)
+    const channel = parsed.channel
+    const secret = opts.secret || parsed.secret
 
     try {
       const cid = name
@@ -272,7 +274,7 @@ program
   .option('--prompt <text>', 'System prompt for the agent')
   .option('--model <model>', 'Model to use')
   .option('--name <name>', 'Agent display name')
-  .action(async (channel, opts) => {
+  .action(async (channelArg, opts) => {
     const cli = opts.cli || detectCli()
     if (!cli) {
       console.error('Error: neither "claude" nor "codex" CLI found. Install one first.')
@@ -283,8 +285,10 @@ program
       process.exit(1)
     }
 
+    const parsed = parseChannelArg(channelArg)
+    const channel = parsed.channel
     const agentName = opts.name || chatName() + '-agent'
-    const secret = opts.secret || channel
+    const secret = opts.secret || parsed.secret
     const cid = agentName
     const askFn = cli === 'claude' ? runClaude : runCodex
 
