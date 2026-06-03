@@ -173,13 +173,24 @@ function runClaude(prompt, sessionId, model, extraArgs) {
 
   const stdout = (result.stdout || '').trim()
   const out = { text: stdout, sessionId: null }
-  const lines = stdout.split('\n').filter(l => l.trim())
-  for (let i = lines.length - 1; i >= 0; i--) {
-    try {
-      const obj = JSON.parse(lines[i])
-      if (obj.session_id) out.sessionId = obj.session_id
-      if (obj.result !== undefined) { out.text = obj.result; break }
-    } catch {}
+
+  // `claude -p --output-format json` returns a single-line JSON array of
+  // events ([system/init, ...assistant, result]); the reply text is on the
+  // element with type "result". Older CLIs returned a single result object,
+  // and stream-json emits newline-delimited objects. Handle all three.
+  const applyEvent = (obj) => {
+    if (!obj || typeof obj !== 'object') return
+    if (obj.session_id) out.sessionId = obj.session_id
+    if (obj.type === 'result' && typeof obj.result === 'string') out.text = obj.result
+    else if (obj.result !== undefined) out.text = obj.result
+  }
+
+  let whole
+  try { whole = JSON.parse(stdout) } catch {}
+  if (Array.isArray(whole)) whole.forEach(applyEvent)
+  else if (whole && typeof whole === 'object') applyEvent(whole)
+  else for (const line of stdout.split('\n')) {
+    try { applyEvent(JSON.parse(line)) } catch {}
   }
   return out
 }
