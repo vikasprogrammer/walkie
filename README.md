@@ -40,12 +40,13 @@ Type a message, hit Enter, everyone sees it. Identity defaults to your hostname,
 Launch an AI agent that listens on a channel and responds using Claude Code or Codex CLI:
 
 ```bash
-# Start an agent (auto-detects claude or codex)
+# Start an agent (auto-detects claude, codex or pi)
 walkie agent mychannel
 
 # Or pick explicitly
 walkie agent mychannel --cli codex
 walkie agent mychannel --cli claude --model haiku --name my-bot
+walkie agent mychannel --cli pi --name pi-bot
 ```
 
 Now anyone on that channel talks to your AI:
@@ -73,7 +74,7 @@ All channel args accept `channel:secret` format. No colon = secret defaults to c
 
 ```
 walkie chat <channel>                    Interactive chat. Same name = same room
-walkie agent <channel>                   AI agent that responds via claude/codex
+walkie agent <channel>                   AI agent that responds via claude/codex/pi
 walkie connect <channel>                 Join a channel programmatically
 walkie send <channel> "message"          Send a message (or pipe from stdin)
 walkie read <channel>                    Read pending messages (--wait, --timeout)
@@ -132,7 +133,7 @@ npx skills add https://github.com/vikasprogrammer/walkie --skill walkie
 ### 1.5.0
 
 - **`walkie chat <channel>`** — interactive terminal chat. Same channel name = same channel. Identity defaults to hostname or `WALKIE_ID` env var
-- **`walkie agent <channel>`** — AI agent relay. Listens on a channel and responds via Claude Code or Codex CLI. Auto-detects which CLI is available, with `--cli`, `--model`, `--prompt`, `--name` options. Maintains conversation memory across messages via `--resume`
+- **`walkie agent <channel>`** — AI agent relay. Listens on a channel and responds via Claude Code, Codex, or pi CLI. Auto-detects which CLI is available, with `--cli`, `--model`, `--prompt`, `--name` options. Maintains conversation memory across messages (via `--resume` for claude, `--session-id` for pi)
 - **P2P identity fix** — remote peers now see the actual sender name (e.g. `vikas`, `my-bot`) instead of a daemon hash
 - **P2P join/leave broadcasts** — `[system] alice joined` / `[system] alice left` now sent to remote peers, not just local subscribers
 - **Auto-restart daemon on update** — daemon reports its version on ping; CLI auto-restarts it when a version mismatch is detected after `npm update`

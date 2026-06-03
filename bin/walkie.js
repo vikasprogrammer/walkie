@@ -10,7 +10,7 @@ program
 
 Getting started:
   $ walkie chat mychannel                    Interactive chat (same name = same channel)
-  $ walkie agent mychannel                   AI agent that responds via claude/codex
+  $ walkie agent mychannel                   AI agent that responds via claude/codex/pi
   $ walkie agent mychannel --cli codex       Use a specific AI CLI
 
 Programmatic (for agents/scripts):
@@ -147,7 +147,7 @@ program
 
 function detectCli() {
   const { spawnSync } = require('child_process')
-  for (const cmd of ['claude', 'codex']) {
+  for (const cmd of ['claude', 'codex', 'pi']) {
     const r = spawnSync('which', [cmd], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
     if (r.status === 0) return cmd
   }
@@ -246,11 +246,49 @@ function runCodex(prompt, sessionId, model, extraArgs) {
   return { text, sessionId: threadId }
 }
 
+function runPi(prompt, sessionId, model, extraArgs) {
+  const { spawnSync } = require('child_process')
+  const args = ['-p', prompt, '--mode', 'json']
+  // --session-id reuses (or creates) a session, giving the agent memory across turns
+  if (sessionId) args.push('--session-id', sessionId)
+  if (model) args.push('--model', model)
+  if (extraArgs) args.push(...extraArgs)
+
+  const result = spawnSync('pi', args, {
+    timeout: 300000,
+    maxBuffer: 10 * 1024 * 1024,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe']
+  })
+
+  if (result.error) throw result.error
+  if (result.status !== 0) throw new Error(result.stderr || 'pi exited with code ' + result.status)
+
+  // pi --mode json emits newline-delimited events. The session id is on the
+  // "session" event; the reply is the text content of the final assistant
+  // message (accumulated across message_update/message_end events).
+  const out = { text: (result.stdout || '').trim(), sessionId: sessionId || null }
+  let assistantText = null
+  for (const line of (result.stdout || '').split('\n')) {
+    if (!line.trim()) continue
+    let obj
+    try { obj = JSON.parse(line) } catch { continue }
+    if (obj.type === 'session' && obj.id) out.sessionId = obj.id
+    const msg = obj.message
+    if (msg && msg.role === 'assistant' && Array.isArray(msg.content)) {
+      const t = msg.content.filter(c => c && c.type === 'text').map(c => c.text).join('')
+      if (t) assistantText = t
+    }
+  }
+  if (assistantText !== null) out.text = assistantText
+  return out
+}
+
 program
   .command('agent <channel>')
-  .description('AI agent that listens and responds via claude or codex')
+  .description('AI agent that listens and responds via claude, codex or pi')
   .option('--secret <secret>', 'Custom secret (default: channel name)')
-  .option('--cli <cli>', 'CLI to use: claude or codex (auto-detected if omitted)')
+  .option('--cli <cli>', 'CLI to use: claude, codex or pi (auto-detected if omitted)')
   .option('--prompt <text>', 'System prompt for the agent')
   .option('--model <model>', 'Model to use')
   .option('--name <name>', 'Agent display name')
@@ -258,11 +296,11 @@ program
   .action(async (channelArg, opts) => {
     const cli = opts.cli || detectCli()
     if (!cli) {
-      console.error('Error: neither "claude" nor "codex" CLI found. Install one first.')
+      console.error('Error: no supported CLI ("claude", "codex" or "pi") found. Install one first.')
       process.exit(1)
     }
-    if (cli !== 'claude' && cli !== 'codex') {
-      console.error(`Error: unsupported CLI "${cli}". Use "claude" or "codex".`)
+    if (cli !== 'claude' && cli !== 'codex' && cli !== 'pi') {
+      console.error(`Error: unsupported CLI "${cli}". Use "claude", "codex" or "pi".`)
       process.exit(1)
     }
 
@@ -272,7 +310,7 @@ program
     const secret = opts.secret || parsed.secret
     const cid = agentName
     const extraArgs = opts.agentArgs ? opts.agentArgs.split(/\s+/) : null
-    const askFn = cli === 'claude' ? runClaude : runCodex
+    const askFn = cli === 'claude' ? runClaude : cli === 'codex' ? runCodex : runPi
 
     try {
       const resp = await request({ action: 'join', channel, secret, clientId: cid })
