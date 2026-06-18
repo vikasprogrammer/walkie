@@ -618,16 +618,18 @@ module.exports = `<!DOCTYPE html>
       const state = snapshotState();
       clearTimeout(saveTimer);
       saveTimer = setTimeout(() => {
-        if (writeLocalState(state)) return;
+        // Write to durable server file first, fall back to localStorage
         fetch('/state', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(state)
-        }).catch(() => {});
+        })
+          .then(() => writeLocalState(state))
+          .catch(() => writeLocalState(state));
       }, 500);
     }
 
-    async function loadLegacyState() {
+    async function loadServerState() {
       try {
         const resp = await fetch('/state');
         const state = await resp.json();
@@ -638,16 +640,18 @@ module.exports = `<!DOCTYPE html>
     }
 
     async function load() {
-      const localState = readLocalState();
-      if (localState) {
-        applyState(localState);
+      // Prefer durable server-side state (survives browser clears + restarts)
+      const serverState = await loadServerState();
+      if (serverState) {
+        applyState(serverState);
+        // keep a local copy for offline resilience
+        writeLocalState(snapshotState());
         return;
       }
 
-      const legacyState = await loadLegacyState();
-      if (legacyState) {
-        applyState(legacyState);
-        writeLocalState(snapshotState());
+      const localState = readLocalState();
+      if (localState) {
+        applyState(localState);
       }
     }
 

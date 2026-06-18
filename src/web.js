@@ -315,4 +315,15 @@ async function startWebServer({ port = 3000 } = {}) {
   return { port: actualPort, close: () => server.close() }
 }
 
-module.exports = { startWebServer }
+module.exports = {
+  startWebServer,
+  STATE_FILE,
+  readState: () => {
+    try { return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')) } catch { return {} }
+  },
+  writeState: (obj) => {
+    const dir = path.dirname(STATE_FILE)
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 })
+    fs.writeFileSync(STATE_FILE, JSON.stringify(obj, null, 2), { mode: 0o600 })
+  }
+}
