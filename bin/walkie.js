@@ -43,14 +43,16 @@ async function autoJoin(channelArg, cid, persist) {
   return channel
 }
 
-function execForMessage(command, msg, channel) {
-  const { execSync } = require('child_process')
+const { execFileSync } = require('child_process')
+
+function execForMessage(shellCmd, msg, channel) {
   try {
-    execSync(command, {
+    execFileSync('/bin/sh', ['-c', '$WALKIE_CMD'], {
       timeout: 30000,
       stdio: 'inherit',
       env: {
         ...process.env,
+        WALKIE_CMD: shellCmd,
         WALKIE_MSG: msg.data,
         WALKIE_FROM: msg.from,
         WALKIE_TS: String(msg.ts),
@@ -1130,9 +1132,8 @@ program
       }
       console.log(`walkie web UI → ${url}`)
       if (opts.open) {
-        const { exec } = require('child_process')
-        const cmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open'
-        exec(`${cmd} ${url}`)
+        const openBin = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open'
+        execFileSync(openBin, [url], { stdio: 'ignore' })
       }
     } catch (e) {
       console.error(`Error: ${e.message}`)
